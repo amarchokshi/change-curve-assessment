@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Change Curve Self-Assessment</title>
+<style>
+  :root{
+    --ink:#111827; --muted:#64748b; --bg:#f8fafc; --card:#ffffff;
+    --border:#e5e7eb; --acc:#4f46e5; --acc-weak:#eef2ff; --success:#0f766e; --danger:#b91c1c;
+  }
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.6}
+  .wrap{max-width:900px;margin:0 auto;padding:24px}
+  h1,h2,h3{text-align:center;color:#0f172a;margin-bottom:8px}
+  p.sub{text-align:center;color:var(--muted);margin:0 0 16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 16px rgba(2,6,23,.06);padding:20px;margin-top:16px}
+  .legend{font-size:.92rem;color:var(--muted);margin:8px 0 16px;text-align:center}
+  .question{border:1px solid var(--border);border-radius:10px;padding:14px;margin:10px 0;background:#fff}
+  .q-stem{margin:0 0 10px;font-weight:600}
+  .options label{display:block;border:1px solid var(--border);border-radius:8px;padding:10px;margin:6px 0;cursor:pointer;transition:background .2s,border-color .2s}
+  .options input{margin-right:10px}
+  .options label:hover{background:var(--acc-weak);border-color:#c7d2fe}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+  button{cursor:pointer;border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:10px;padding:10px 16px;font-weight:700}
+  button.ghost{background:#fff;color:var(--acc)}
+  #results{display:none;margin-top:16px}
+  .barrow{display:grid;grid-template-columns:160px 1fr 60px;gap:10px;align-items:center;margin:8px 0}
+  .bar{height:12px;background:var(--acc-weak);border-radius:999px;overflow:hidden}
+  .bar > span{display:block;height:100%;background:var(--acc);width:0%}
+  .guidance{margin-top:14px;padding:14px;border-left:6px solid var(--success);background:#ecfdf5;border-radius:10px}
+  .footer{margin-top:16px;text-align:center;color:var(--muted);font-size:.9rem}
+  .error{display:none;color:var(--danger);font-weight:700;text-align:center;margin:10px 0}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Change Curve Self-Assessment</h1>
+    <h2>Kubler-Ross inspired diagnostic to guide your next leadership moves</h2>
+    <h3>Created By: Amar Chokshi</h3>
+
+    <div class="card">
+      <div class="legend">Rate each statement: <strong>Strongly Disagree</strong> → <strong>Strongly Agree</strong>. All items are required.</div>
+
+      <form id="survey"></form>
+
+      <!-- Inline validation banner -->
+      <div id="errorMsg" class="error">
+        Some responses are missing. Please complete all questions before submitting.
+      </div>
+
+      <div class="controls">
+        <button type="button" id="submitBtn">Calculate Results</button>
+        <button type="button" class="ghost" id="resetBtn">Reset</button>
+      </div>
+
+      <div id="results" class="card">
+        <h2>Results</h2>
+        <div id="ranked"></div>
+        <div id="topGuidance" class="guidance"></div>
+      </div>
+
+      <div class="footer">© 2025 Amar on Change • Turning Investments Into Outcomes</div>
+    </div>
+  </div>
+
+<script>
+  const QUESTIONS = [
+    {id:"q1", text:"I have not received any communication about this project.", stage:"Shock"},
+    {id:"q2", text:"I’ve heard of this project, but I don’t think it will affect me.", stage:"Shock"},
+    {id:"q3", text:"This project feels overwhelming given my current workload.", stage:"Shock"},
+    {id:"q4", text:"I don’t believe this project will actually be implemented.", stage:"Denial"},
+    {id:"q5", text:"I’ve received updates but haven’t prioritized reviewing them.", stage:"Denial"},
+    {id:"q6", text:"This feels like 'just another initiative' that may not go anywhere.", stage:"Denial"},
+    {id:"q7", text:"This project is not aligned with our team or company goals.", stage:"Anger"},
+    {id:"q8", text:"This project is being poorly managed or implemented.", stage:"Anger"},
+    {id:"q9", text:"The project is being forced on us without meaningful input.", stage:"Anger"},
+    {id:"q10", text:"We could achieve results by improving current processes instead.", stage:"Bargaining"},
+    {id:"q11", text:"I would support this more if it were tailored to my team’s needs.", stage:"Bargaining"},
+    {id:"q12", text:"I’ve suggested alternate approaches to reach the same outcomes.", stage:"Bargaining"},
+    {id:"q13", text:"I’m not sure where to find reliable project information.", stage:"Confusion"},
+    {id:"q14", text:"This project has made my day-to-day work more stressful or unclear.", stage:"Confusion"},
+    {id:"q15", text:"I don’t fully understand how this project affects my role.", stage:"Confusion"},
+    {id:"q16", text:"I understand why this project is important to our business goals.", stage:"Acceptance"},
+    {id:"q17", text:"I have clarity on what’s expected of me for this project.", stage:"Acceptance"},
+    {id:"q18", text:"I’ve adjusted how I work to support the project.", stage:"Acceptance"},
+    {id:"q19", text:"I’m actively contributing to shaping or delivering this project.", stage:"Problem Solving"},
+    {id:"q20", text:"I’ve provided ideas to improve the rollout or adoption.", stage:"Problem Solving"},
+    {id:"q21", text:"I’m committed to helping this succeed within my team or department.", stage:"Problem Solving"}
+  ];
+
+  const GUIDANCE = {
+    "Shock": "Communicate early and clearly, even if you don’t have all the answers. Provide simple, factual information to reduce uncertainty and direct people to a single source of truth.",
+    "Denial": "Reinforce the WHY and link it to strategy, customers, and risk if nothing changes. Make impacts personal and use trusted managers/change agents to carry the message.",
+    "Anger": "Acknowledge frustration; don’t dismiss it. Provide channels to be heard, summarize what you’re hearing, and co-design feasible aspects of the rollout to rebuild ownership.",
+    "Bargaining": "Respect the instinct to tweak, but show why 'opt-outs' won’t achieve outcomes. Offer safe local configuration, define non-negotiables, and highlight quick-win benefits.",
+    "Confusion": "Reduce ambiguity with role-based expectations, roadmaps, and indexed how-to content. Add office hours, clarify decision rights, and pare back lower-value work to ease load.",
+    "Acceptance": "Lock in momentum: celebrate milestones, recognize adopters, and convert goals into role-based OKRs. Shift updates from activity to outcomes and impact stories.",
+    "Problem Solving": "Empower champions: give them forums, tools, and micro-budgets to run experiments. Share their results widely to accelerate peer-to-peer adoption."
+  };
+
+  function shuffle(arr){
+    return arr.map(a=>({sort:Math.random(),value:a}))
+              .sort((a,b)=>a.sort-b.sort)
+              .map(a=>a.value);
+  }
+
+  function renderSurvey(){
+    const form = document.getElementById("survey");
+    form.innerHTML="";
+    const randomized = shuffle(QUESTIONS);
+    randomized.forEach((q,idx)=>{
+      const qDiv=document.createElement("div");
+      qDiv.className="question";
+      qDiv.innerHTML=`<p class="q-stem">${idx+1}) ${q.text}</p>
+        <div class="options">
+          <label><input type="radio" name="${q.id}" value="1"> Strongly Disagree</label>
+          <label><input type="radio" name="${q.id}" value="2"> Disagree</label>
+          <label><input type="radio" name="${q.id}" value="3"> Neutral</label>
+          <label><input type="radio" name="${q.id}" value="4"> Agree</label>
+          <label><input type="radio" name="${q.id}" value="5"> Strongly Agree</label>
+        </div>`;
+      form.appendChild(qDiv);
+    });
+  }
+
+  function calculateResults(){
+    const msg = document.getElementById('errorMsg');
+    const scores={Shock:0,Denial:0,Anger:0,Bargaining:0,Confusion:0,Acceptance:0,"Problem Solving":0};
+
+    for(const q of QUESTIONS){
+      const val=document.querySelector(`input[name="${q.id}"]:checked`);
+      if(!val){
+        msg.style.display='block'; // show inline validation
+        return;
+      }
+      scores[q.stage]+=parseInt(val.value,10);
+    }
+    msg.style.display='none'; // hide if all answered
+
+    const ranked=Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+    const rankedEl=document.getElementById("ranked");
+    rankedEl.innerHTML="";
+    const maxScore=15;
+    ranked.forEach(([stage,score])=>{
+      rankedEl.innerHTML+=`<div class="barrow">
+        <div>${stage}</div>
+        <div class="bar"><span style="width:${(score/maxScore)*100}%"></span></div>
+        <div style="text-align:right">${score}</div>
+      </div>`;
+    });
+
+    const topStage=ranked[0][0];
+    document.getElementById("topGuidance").innerHTML=`<strong>Top Signal: ${topStage}</strong><br>${GUIDANCE[topStage]}`;
+    const results=document.getElementById("results");
+    results.style.display="block";
+    results.scrollIntoView({behavior:"smooth"});
+  }
+
+  document.getElementById('submitBtn').addEventListener('click', calculateResults);
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    document.getElementById('survey').reset();
+    document.getElementById('results').style.display='none';
+    document.getElementById('ranked').innerHTML="";
+    document.getElementById('topGuidance').innerHTML="";
+    document.getElementById('errorMsg').style.display='none';
+    renderSurvey(); // re-randomize on reset
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+
+  renderSurvey();
+</script>
+</body>
+</html>
